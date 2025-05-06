@@ -22,16 +22,15 @@ const dias = [
   'Domingo',
 ];
 
-const horarios = [
-  '15:00',
-  '16:00',
-  '17:00',
-  '18:00',
-  '19:00',
-  '20:00',
-  '21:00',
-  '22:00',
-  '23:00',
+const horariosFutbol = [
+  "15:00", "16:00", "17:00", "18:00", "19:00",
+  "20:00", "21:00", "22:00", "23:00"
+];
+
+const horariosPadel = [
+  "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
+  "18:00", "18:30", "19:00", "19:30", "20:00", "20:30",
+  "21:00", "21:30", "22:00", "22:30", "23:00"
 ];
 
 const fijosFutbol = ['Joaco Pereyra', 'Ayrton', 'Diego'];
@@ -100,13 +99,21 @@ export default function TurnosApp() {
   const [turnos, setTurnos] = useState(initialTurnos);
   const [nuevoTurno, setNuevoTurno] = useState({
     dia: '',
-    hora: '',
+    horaInicio: '',
+    horaFin: '',
     nombre: '',
   });
+  
   const [showFijos, setShowFijos] = useState(false);
   const [celdaActiva, setCeldaActiva] = useState(null);
   const [semanaActual, setSemanaActual] = useState(0);
+  const horarios = deporte === "PADEL" ? horariosPadel : horariosFutbol;
 
+  const horaAminutos = (hora) => {
+    const [h, m] = hora.split(':').map(Number);
+    return h * 60 + m;
+  };
+  
   const esFijo = (nombre) => fijosFutbol.includes(nombre);
 
   const handleFormChange = (field, value) => {
@@ -122,24 +129,73 @@ export default function TurnosApp() {
     setNuevoTurno({ ...nuevoTurno, nombre });
     setShowFijos(false);
   };
-
   const handleGuardar = () => {
-    const { dia, hora, nombre } = nuevoTurno;
-    if (!dia || !hora || !nombre) return;
-    if (turnos[deporte]?.[dia]?.[hora]) {
-      alert('Ese turno ya está ocupado.');
+    const { dia, horaInicio, horaFin, nombre } = nuevoTurno;
+    if (!dia || !horaInicio || !horaFin || !nombre) return;
+  
+    const startIndex = horarios.indexOf(horaInicio);
+    const endIndex = horarios.indexOf(horaFin);
+  
+    if (startIndex === -1 || endIndex === -1 || startIndex >= endIndex) {
+      alert('Rango de horas inválido.');
       return;
     }
+  
+    const horasSeleccionadas = horarios.slice(startIndex, endIndex);
+  
+    const diaTurnos = turnos[deporte]?.[dia] || {};
+    const conflicto = horasSeleccionadas.some((hora) => diaTurnos[hora]);
+  
+    if (conflicto) {
+      alert('Al menos una de las horas seleccionadas ya está ocupada.');
+      return;
+    }
+  
+    const nuevosTurnos = { ...diaTurnos };
+    horasSeleccionadas.forEach((hora) => {
+      nuevosTurnos[hora] = nombre;
+    });
+  
     setTurnos((prev) => ({
       ...prev,
       [deporte]: {
         ...prev[deporte],
-        [dia]: {
-          ...prev[deporte][dia],
-          [hora]: nombre,
-        },
+        [dia]: nuevosTurnos,
       },
     }));
+  
+    alert('Turno guardado correctamente.');
+    setNuevoTurno({ dia: '', horaInicio: '', horaFin: '', nombre: '' });
+    setPantalla('home');
+  };
+  
+  
+  // Validación
+  const ocupados = horariosSeleccionados.some(
+    (h) => turnos[deporte]?.[dia]?.[h]
+  );
+  if (ocupados) {
+    alert("Uno o más horarios del rango ya están ocupados.");
+    return;
+  }
+  
+  // Agregar todos los horarios del rango
+  const nuevos = {};
+  horariosSeleccionados.forEach((h) => {
+    nuevos[h] = nombre;
+  });
+  
+  setTurnos((prev) => ({
+    ...prev,
+    [deporte]: {
+      ...prev[deporte],
+      [dia]: {
+        ...prev[deporte][dia],
+        ...nuevos,
+      },
+    },
+  }));
+  
     alert('Turno guardado correctamente.');
     setNuevoTurno({ dia: '', hora: '', nombre: '' });
     setPantalla('home');
@@ -287,32 +343,33 @@ export default function TurnosApp() {
 
             {nuevoTurno.dia && (
               <div className="mb-4">
-                <Label className="block mb-1">Hora</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {horarios.map((hora) => {
-                    const ocupadoPor = turnos[deporte]?.[nuevoTurno.dia]?.[hora];
-                    return (
-                      <button
-                        key={hora}
-                        onClick={() => !ocupadoPor && handleFormChange('hora', hora)}
-                        className={`p-2 text-center rounded ${
-                          nuevoTurno.hora === hora
-                            ? 'bg-blue-600 text-white'
-                            : ocupadoPor
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                        disabled={ocupadoPor}
-                      >
-                        {hora}
-                        {ocupadoPor && (
-                          <div className="text-xs text-gray-500">{ocupadoPor}</div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <Label className="block mb-1">Hora de inicio</Label>
+              <select
+                value={nuevoTurno.horaInicio}
+                onChange={(e) => handleFormChange('horaInicio', e.target.value)}
+                className="w-full border rounded px-2 py-1"
+              >
+                <option value="">Seleccionar hora de inicio</option>
+                {horarios.map((hora) => (
+                  <option key={hora} value={hora}>{hora}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="mb-4">
+              <Label className="block mb-1">Hora de fin</Label>
+              <select
+                value={nuevoTurno.horaFin}
+                onChange={(e) => handleFormChange('horaFin', e.target.value)}
+                className="w-full border rounded px-2 py-1"
+              >
+                <option value="">Seleccionar hora de fin</option>
+                {horarios.map((hora) => (
+                  <option key={hora} value={hora}>{hora}</option>
+                ))}
+              </select>
+            </div>
+            
             )}
 
             <Label className="block mb-1">Nombre</Label>
